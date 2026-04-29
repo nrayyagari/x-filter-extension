@@ -222,6 +222,15 @@
       }
     }
 
+    if (settings.activeFilters.intlRelations) {
+      for (const kw of settings.keywords.intlRelations) {
+        if (keywordMatch(lowerText, kw)) {
+          score += 2;
+          if (!reason) reason = "International Relations";
+        }
+      }
+    }
+
     if (settings.learned.authors.includes(author)) {
       score += 3;
       if (!reason) reason = "Learned author";

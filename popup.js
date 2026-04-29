@@ -21,6 +21,7 @@ function renderMainView() {
   document.getElementById("filter-political").checked = settings.activeFilters.political;
   document.getElementById("filter-movies").checked = settings.activeFilters.movies;
   document.getElementById("filter-sensationalism").checked = settings.activeFilters.sensationalism;
+  document.getElementById("filter-intlRelations").checked = settings.activeFilters.intlRelations ?? true;
 }
 
 function renderAdvancedView() {
@@ -109,6 +110,7 @@ document.getElementById("btn-block").addEventListener("click", () => {
   settings.activeFilters.political = document.getElementById("filter-political").checked;
   settings.activeFilters.movies = document.getElementById("filter-movies").checked;
   settings.activeFilters.sensationalism = document.getElementById("filter-sensationalism").checked;
+  settings.activeFilters.intlRelations = document.getElementById("filter-intlRelations").checked;
   saveAndRefresh();
   const btn = document.getElementById("btn-block");
   btn.textContent = "Saved!";
