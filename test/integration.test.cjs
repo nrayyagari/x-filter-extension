@@ -145,7 +145,7 @@ async function runTests() {
         const isVisible = tweet.style.display !== "none";
         const hasPlaceholder = tweet.parentElement ? (tweet.parentElement.querySelectorAll(".xf-placeholder").length > 0 ||
                                (tweet.previousElementSibling && tweet.previousElementSibling.classList.contains("xf-placeholder"))) : false;
-        const processed = tweet.getAttribute("data-filter-processed") === "true";
+        const processed = tweet.getAttribute("data-xf-processed") === "true";
 
         testResults.push({
           index,

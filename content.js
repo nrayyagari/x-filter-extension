@@ -1,5 +1,5 @@
 (function () {
-  const PROCESSED_ATTR = "data-filter-processed";
+  const PROCESSED_ATTR = "data-xf-processed";
   const DEBUG = true;
 
   let settings = null;
@@ -12,70 +12,69 @@
   function log(...args) {
     if (DEBUG) console.log("[X-Filter]", ...args);
   }
-
   function warn(...args) {
     if (DEBUG) console.warn("[X-Filter]", ...args);
   }
 
-  // --- Settings Loading with Retry ---
+  // --- Settings Loading ---
 
   function init() {
-    log("Initializing X Filter content script...");
+    log("Initializing...");
     tryLoadSettings();
   }
 
   function tryLoadSettings() {
     initAttempts++;
     log(`Loading settings (attempt ${initAttempts}/${MAX_INIT_ATTEMPTS})...`);
-
     chrome.runtime.sendMessage({ type: "getSettings" }, (response) => {
       if (chrome.runtime.lastError) {
         warn("Settings load error:", chrome.runtime.lastError.message);
-        scheduleRetry();
+        if (initAttempts < MAX_INIT_ATTEMPTS) {
+          setTimeout(tryLoadSettings, Math.min(500 * initAttempts, 3000));
+        } else {
+          warn("Max retries exceeded. Filtering disabled.");
+        }
         return;
       }
-
       if (response?.settings) {
         settings = response.settings;
-        log("Settings loaded. enabled:", settings.enabled, "filters:", JSON.stringify(settings.activeFilters));
-        log("Keywords loaded - political:", settings.keywords?.political?.length, "movies:", settings.keywords?.movies?.length, "sensationalism:", settings.keywords?.sensationalism?.length);
-        log("Tech whitelist:", settings.techWhitelist?.length, "Learned authors:", settings.learned?.authors?.length);
-
+        log("Settings loaded. enabled=", settings.enabled);
         if (settings.enabled) {
           startFiltering();
         } else {
-          log("Filtering is disabled in settings.");
+          log("Filtering disabled.");
         }
       } else {
-        warn("No settings received from background.");
-        scheduleRetry();
+        warn("No settings in response.");
+        if (initAttempts < MAX_INIT_ATTEMPTS) {
+          setTimeout(tryLoadSettings, Math.min(500 * initAttempts, 3000));
+        }
       }
     });
-  }
-
-  function scheduleRetry() {
-    if (initAttempts < MAX_INIT_ATTEMPTS) {
-      const delay = Math.min(500 * initAttempts, 3000);
-      log(`Retrying settings load in ${delay}ms...`);
-      setTimeout(tryLoadSettings, delay);
-    } else {
-      warn("Failed to load settings after maximum attempts. Filtering will not work.");
-    }
   }
 
   // --- Message Handling ---
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message.type === "settingsUpdated") {
-      log("Received settingsUpdated message.", message.data);
+      log("settingsUpdated received");
       settings = message.data;
       if (settings.enabled) {
         reprocessAll();
         startFiltering();
       } else {
         stopFiltering();
+        restoreAllHidden();
       }
-      if (sendResponse) sendResponse({ received: true });
+      sendResponse?.({ received: true });
+    }
+    if (message.type === "forceScan") {
+      log("forceScan received");
+      if (settings?.enabled) {
+        reprocessAll();
+        processVisibleTweets();
+      }
+      sendResponse?.({ scanned: true, tweetCount: getVisibleTweets().length });
     }
     return true;
   });
@@ -83,83 +82,74 @@
   // --- DOM Observation ---
 
   function startFiltering() {
-    log("Starting filtering...");
     processVisibleTweets();
     observeDOM();
     startPeriodicScan();
+    showStatusIndicator();
   }
 
   function observeDOM() {
-    if (observer) {
-      log("Observer already running.");
-      return;
-    }
-
+    if (observer) return;
     observer = new MutationObserver((mutations) => {
       if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
-        let hasNewTweets = false;
-        for (const mutation of mutations) {
-          for (const node of mutation.addedNodes) {
+        let hasNew = false;
+        for (const m of mutations) {
+          for (const node of m.addedNodes) {
             if (node.nodeType !== Node.ELEMENT_NODE) continue;
-            if (
-              (node.matches && node.matches('article[data-testid="tweet"]')) ||
-              (node.querySelectorAll && node.querySelectorAll('article[data-testid="tweet"]').length > 0)
-            ) {
-              hasNewTweets = true;
+            if (isTweetElement(node) || node.querySelectorAll('article[data-testid="tweet"]').length > 0) {
+              hasNew = true;
               break;
             }
           }
-          if (hasNewTweets) break;
+          if (hasNew) break;
         }
-        if (hasNewTweets) {
-          log("DOM mutation detected new tweets.");
-          processVisibleTweets();
-        }
+        if (hasNew) processVisibleTweets();
       }, 50);
     });
-
     observer.observe(document.body, { childList: true, subtree: true });
-    log("MutationObserver started on document.body.");
+    log("Observer started.");
   }
 
   function stopFiltering() {
-    log("Stopping filtering...");
-    if (observer) {
-      observer.disconnect();
-      observer = null;
-      log("MutationObserver disconnected.");
-    }
-    if (debounceTimer) {
-      clearTimeout(debounceTimer);
-      debounceTimer = null;
-    }
-    if (periodicScanTimer) {
-      clearInterval(periodicScanTimer);
-      periodicScanTimer = null;
-      log("Periodic scan stopped.");
-    }
+    if (observer) { observer.disconnect(); observer = null; }
+    if (debounceTimer) { clearTimeout(debounceTimer); debounceTimer = null; }
+    if (periodicScanTimer) { clearInterval(periodicScanTimer); periodicScanTimer = null; }
+    hideStatusIndicator();
   }
 
   function startPeriodicScan() {
     if (periodicScanTimer) clearInterval(periodicScanTimer);
     periodicScanTimer = setInterval(() => {
-      if (settings && settings.enabled) {
-        const tweets = getVisibleTweets();
-        const unprocessed = tweets.filter((t) => !t.getAttribute(PROCESSED_ATTR)).length;
+      if (settings?.enabled) {
+        const unprocessed = getVisibleTweets().filter((t) => !t.getAttribute(PROCESSED_ATTR)).length;
         if (unprocessed > 0) {
-          log(`Periodic scan: ${unprocessed} unprocessed tweets found.`);
+          log(`Periodic scan: ${unprocessed} unprocessed.`);
           processVisibleTweets();
         }
+        updateStatusIndicator();
       }
     }, 2000);
-    log("Periodic scan started (every 2s).");
   }
 
-  // --- Tweet Processing ---
+  // --- Tweet Discovery ---
+
+  function isTweetElement(el) {
+    return el.matches && el.matches('article[data-testid="tweet"]');
+  }
 
   function getVisibleTweets() {
     return Array.from(document.querySelectorAll('article[data-testid="tweet"]'));
+  }
+
+  function findTweetCell(tweetEl) {
+    // X.com wraps tweets in div[data-testid="cellInnerDiv"]
+    const cell = tweetEl.closest('div[data-testid="cellInnerDiv"]');
+    if (cell) return cell;
+    // Fallback: parent that contains only this tweet
+    const parent = tweetEl.parentElement;
+    if (parent && parent.children.length <= 2) return parent;
+    return tweetEl.parentElement;
   }
 
   const BATCH_SIZE = 20;
@@ -167,265 +157,223 @@
   function processVisibleTweets() {
     const tweets = getVisibleTweets();
     if (tweets.length === 0) {
-      log("No tweets found in DOM.");
+      log("No tweets found.");
       return;
     }
-
-    let processed = 0;
-    let skipped = 0;
-    let hidden = 0;
-
+    let processed = 0, skipped = 0, hidden = 0;
     for (const tweet of tweets) {
       if (processed >= BATCH_SIZE) {
-        setTimeout(() => processVisibleTweets(), 100);
+        setTimeout(processVisibleTweets, 100);
         break;
       }
-      if (tweet.getAttribute(PROCESSED_ATTR)) {
-        skipped++;
-        continue;
-      }
-      const result = processTweet(tweet);
-      if (result) hidden++;
+      if (tweet.getAttribute(PROCESSED_ATTR)) { skipped++; continue; }
+      if (processTweet(tweet)) hidden++;
       processed++;
     }
-
-    if (processed > 0 || hidden > 0) {
-      log(`Processed ${processed} tweets, hidden ${hidden}, skipped ${skipped} already processed. Total tweets in DOM: ${tweets.length}`);
+    if (processed > 0) {
+      log(`Processed ${processed}, hidden ${hidden}, skipped ${skipped}. Total: ${tweets.length}`);
     }
   }
 
   function reprocessAll() {
-    log("Reprocessing all tweets...");
-    const tweets = getVisibleTweets();
-    tweets.forEach((tweet) => {
-      tweet.removeAttribute(PROCESSED_ATTR);
-      tweet.parentElement.querySelectorAll(".xf-placeholder").forEach((placeholder) => placeholder.remove());
-      tweet.style.display = "";
+    log("Reprocessing all...");
+    getVisibleTweets().forEach((t) => {
+      t.removeAttribute(PROCESSED_ATTR);
+      findTweetCell(t).querySelectorAll(".xf-placeholder").forEach((p) => p.remove());
+      t.style.display = "";
     });
+    processVisibleTweets();
+  }
 
-    let offset = 0;
-    function processBatch() {
-      let count = 0;
-      for (let i = offset; i < tweets.length; i++) {
-        if (count >= BATCH_SIZE) {
-          offset = i;
-          setTimeout(processBatch, 50);
-          return;
-        }
-        if (!tweets[i].getAttribute(PROCESSED_ATTR)) {
-          processTweet(tweets[i]);
-          count++;
-        }
-      }
-      log(`Reprocessed ${tweets.length} tweets.`);
-    }
-    processBatch();
+  function restoreAllHidden() {
+    getVisibleTweets().forEach((t) => {
+      t.removeAttribute(PROCESSED_ATTR);
+      findTweetCell(t).querySelectorAll(".xf-placeholder").forEach((p) => p.remove());
+      t.style.display = "";
+    });
   }
 
   function processTweet(tweetEl) {
-    if (!settings || !settings.enabled) {
-      warn("processTweet called but settings not ready or disabled.");
-      return false;
-    }
-
+    if (!settings || !settings.enabled) return false;
     tweetEl.setAttribute(PROCESSED_ATTR, "true");
 
-    const tweetData = extractTweetData(tweetEl);
-    if (!tweetData) {
-      warn("Failed to extract tweet data.");
+    const data = extractTweetData(tweetEl);
+    if (!data) {
+      warn("extractTweetData failed.");
       return false;
     }
 
-    const result = scoreTweet(tweetData);
-
+    const result = scoreTweet(data);
     if (result.hidden) {
-      hideTweet(tweetEl, result.reason, tweetData);
-      log(`HIDDEN [${result.reason}] author=${tweetData.author || "(none)"} text="${tweetData.text.substring(0, 60)}..."`);
+      hideTweet(tweetEl, result.reason, data);
+      log(`HIDDEN [${result.reason}] @${data.author || "?"}: "${data.text.substring(0, 50)}..."`);
       return true;
-    } else {
-      log(`VISIBLE author=${tweetData.author || "(none)"} text="${tweetData.text.substring(0, 60)}..."`);
-      return false;
     }
+    return false;
   }
 
-  // --- Data Extraction ---
+  // --- Data Extraction (Robust) ---
 
   function extractTweetData(tweetEl) {
-    const cellInnerDiv = tweetEl.closest('div[data-testid="cellInnerDiv"]') || tweetEl.parentElement;
-    if (!cellInnerDiv) {
-      warn("No cell element found for tweet.");
-      return null;
+    const cell = findTweetCell(tweetEl);
+
+    // Extract text: try multiple selectors
+    let text = "";
+    const textSelectors = [
+      '[data-testid="tweetText"]',
+      '[data-testid="cardText"]',
+      'div[dir="auto"]',
+      'div[lang]',
+    ];
+    for (const sel of textSelectors) {
+      const el = tweetEl.querySelector(sel);
+      if (el && el.textContent) {
+        text = el.textContent.trim();
+        if (text.length > 0) break;
+      }
     }
 
-    // Primary: data-testid="tweetText" for tweet text
-    const textEl = tweetEl.querySelector('[data-testid="tweetText"]');
-    const text = textEl ? (textEl.textContent || "") : "";
+    // If no direct child matches, look deeper for any text div
+    if (!text) {
+      const allTextDivs = tweetEl.querySelectorAll('div[dir="auto"]');
+      for (const div of allTextDivs) {
+        const t = div.textContent?.trim();
+        if (t && t.length > text.length) text = t;
+      }
+    }
 
-    // Author extraction: try profile links first
+    // Extract author handle
     let authorHandle = "";
-    const allLinks = tweetEl.querySelectorAll("a[href]");
-    const EXCLUDED_PATHS = new Set([
-      "home", "explore", "notifications", "messages", "i", "search",
-      "settings", "compose", "login", "logout", "signup", "intent",
-      "share", "hashtag"
-    ]);
+    const EXCLUDED = new Set(["home","explore","notifications","messages","i","search","settings","compose","login","logout","signup","intent","share","hashtag","translate"]);
 
-    for (const link of allLinks) {
+    // Method 1: profile links
+    for (const link of tweetEl.querySelectorAll("a[href]")) {
       const href = link.getAttribute("href") || "";
       const parts = href.split("/").filter(Boolean);
-      // X.com profile links are /username (single path segment)
-      if (parts.length === 1 && !EXCLUDED_PATHS.has(parts[0].toLowerCase())) {
-        // Extra validation: usernames are 1-15 chars, alphanumeric + underscore
-        const handle = parts[0];
-        if (/^[a-zA-Z0-9_]{1,15}$/.test(handle)) {
-          authorHandle = handle;
+      if (parts.length === 1 && !EXCLUDED.has(parts[0].toLowerCase())) {
+        if (/^[a-zA-Z0-9_]{1,15}$/.test(parts[0])) {
+          authorHandle = parts[0];
           break;
         }
       }
     }
 
-    // Fallback: avatar image alt text
+    // Method 2: link text that looks like @handle
     if (!authorHandle) {
-      const avatarEl = tweetEl.querySelector('img[alt^="@"]');
-      if (avatarEl) {
-        const alt = avatarEl.getAttribute("alt") || "";
-        if (alt.startsWith("@")) {
-          authorHandle = alt.substring(1);
+      for (const link of tweetEl.querySelectorAll('a[role="link"]')) {
+        const txt = link.textContent?.trim() || "";
+        if (txt.startsWith("@")) {
+          authorHandle = txt.substring(1);
+          break;
         }
       }
     }
 
-    // Fallback: any element with text that looks like @username inside the tweet
+    // Method 3: avatar alt
     if (!authorHandle) {
-      const handleEl = tweetEl.querySelector('a[role="link"]');
-      if (handleEl) {
-        const text = handleEl.textContent || "";
-        if (text.startsWith("@")) {
-          authorHandle = text.substring(1);
+      const img = tweetEl.querySelector('img[alt^="@"]');
+      if (img) {
+        const alt = img.getAttribute("alt") || "";
+        if (alt.startsWith("@")) authorHandle = alt.substring(1);
+      }
+    }
+
+    // Method 4: span containing @handle
+    if (!authorHandle) {
+      for (const span of tweetEl.querySelectorAll("span")) {
+        const txt = span.textContent?.trim() || "";
+        if (/^@[a-zA-Z0-9_]{1,15}$/.test(txt)) {
+          authorHandle = txt.substring(1);
+          break;
         }
       }
     }
 
+    // Hashtags
     const hashtags = [];
-    const hashtagEls = tweetEl.querySelectorAll('a[href*="/hashtag/"]');
-    hashtagEls.forEach((el) => {
-      const tag = el.textContent.trim();
+    tweetEl.querySelectorAll('a[href*="/hashtag/"]').forEach((el) => {
+      const tag = el.textContent?.trim();
       if (tag) hashtags.push(tag);
     });
 
-    const data = {
-      text,
+    return {
+      text: text || "",
       author: authorHandle ? "@" + authorHandle : "",
       hashtags,
       element: tweetEl,
-      cellElement: cellInnerDiv
+      cellElement: cell
     };
-
-    return data;
   }
 
   // --- Scoring ---
 
-  function scoreTweet(tweetData) {
-    const { text, author, hashtags } = tweetData;
+  function scoreTweet(data) {
+    const { text, author, hashtags } = data;
     const lowerText = text.toLowerCase();
 
-    // Whitelisted authors always show
     if (author && settings.whitelistedAuthors?.includes(author)) {
       return { hidden: false, reason: "" };
     }
 
-    // Tech protection override
     if (Array.isArray(settings.techWhitelist)) {
       for (const term of settings.techWhitelist) {
         if (term.includes(" ")) {
-          if (lowerText.includes(term.toLowerCase())) {
-            return { hidden: false, reason: "" };
-          }
+          if (lowerText.includes(term.toLowerCase())) return { hidden: false, reason: "" };
         } else if (new RegExp("\\b" + escapeRegex(term.toLowerCase()) + "\\b").test(lowerText)) {
           return { hidden: false, reason: "" };
         }
       }
     }
 
-    let score = 0;
-    let reason = "";
+    let score = 0, reason = "";
 
-    // Active filter scoring
     if (settings.activeFilters?.political && Array.isArray(settings.keywords?.political)) {
       for (const kw of settings.keywords.political) {
-        if (keywordMatch(lowerText, kw)) {
-          score += 2;
-          if (!reason) reason = "Political content";
-        }
+        if (keywordMatch(lowerText, kw)) { score += 2; if (!reason) reason = "Political content"; }
       }
     }
-
     if (settings.activeFilters?.movies && Array.isArray(settings.keywords?.movies)) {
       for (const kw of settings.keywords.movies) {
-        if (keywordMatch(lowerText, kw)) {
-          score += 2;
-          if (!reason) reason = "Movies & Gossip";
-        }
+        if (keywordMatch(lowerText, kw)) { score += 2; if (!reason) reason = "Movies & Gossip"; }
       }
     }
-
     if (settings.activeFilters?.sensationalism && Array.isArray(settings.keywords?.sensationalism)) {
       for (const kw of settings.keywords.sensationalism) {
-        if (keywordMatch(lowerText, kw)) {
-          score += 1;
-          if (!reason && score >= 3) reason = "Sensationalism";
-        }
+        if (keywordMatch(lowerText, kw)) { score += 1; if (!reason && score >= 3) reason = "Sensationalism"; }
       }
     }
 
-    // Learned patterns (always active)
     if (Array.isArray(settings.learned?.authors) && settings.learned.authors.includes(author)) {
-      score += 3;
-      if (!reason) reason = "Learned author";
+      score += 3; if (!reason) reason = "Learned author";
     }
-
     if (Array.isArray(settings.learned?.hashtags)) {
       for (const tag of hashtags) {
-        if (settings.learned.hashtags.includes(tag)) {
-          score += 2;
-          if (!reason) reason = "Learned hashtag";
-        }
+        if (settings.learned.hashtags.includes(tag)) { score += 2; if (!reason) reason = "Learned hashtag"; }
       }
     }
-
     if (Array.isArray(settings.learned?.keywords)) {
       for (const kw of settings.learned.keywords) {
-        if (keywordMatch(lowerText, kw)) {
-          score += 1;
-        }
+        if (keywordMatch(lowerText, kw)) score += 1;
       }
     }
 
-    return {
-      hidden: score >= 3,
-      reason: reason || "Filtered content",
-      score
-    };
+    return { hidden: score >= 3, reason: reason || "Filtered content", score };
   }
 
   // --- Placeholder UI ---
 
-  function hideTweet(tweetEl, reason, tweetData) {
-    const cell = tweetData.cellElement;
-    if (!cell) {
-      warn("Cannot hide tweet: no cell element.");
-      return;
-    }
+  function hideTweet(tweetEl, reason, data) {
+    const cell = data.cellElement;
+    if (!cell) return;
 
-    // Remove any existing placeholder for this tweet
-    cell.querySelectorAll(".xf-placeholder").forEach((p) => p.remove());
+    // Clean old placeholders
+    findTweetCell(tweetEl).querySelectorAll(".xf-placeholder").forEach((p) => p.remove());
 
     tweetEl.style.display = "none";
 
-    const placeholder = document.createElement("div");
-    placeholder.className = "xf-placeholder";
-    placeholder.innerHTML = `
+    const ph = document.createElement("div");
+    ph.className = "xf-placeholder";
+    ph.innerHTML = `
       <div class="xf-placeholder-inner">
         <div class="xf-icon-row">
           <span class="xf-filter-icon">&#x26A0;</span>
@@ -433,97 +381,79 @@
         </div>
         <div class="xf-hint">Hover to reveal</div>
         <div class="xf-actions">
-          <button class="xf-btn xf-btn-hide" title="Hide similar posts from this author/topic">Hide similar</button>
-          <button class="xf-btn xf-btn-whitelist" title="Always show posts from ${escapeHtml(tweetData.author || "this author")}">&#x2714; Always show ${escapeHtml(tweetData.author || "@author")}</button>
+          <button class="xf-btn xf-btn-hide">Hide similar</button>
+          <button class="xf-btn xf-btn-whitelist">&#x2714; Always show ${escapeHtml(data.author || "@author")}</button>
         </div>
       </div>
     `;
 
-    const hideBtn = placeholder.querySelector(".xf-btn-hide");
-    const whitelistBtn = placeholder.querySelector(".xf-btn-whitelist");
+    const hideBtn = ph.querySelector(".xf-btn-hide");
+    const wlBtn = ph.querySelector(".xf-btn-whitelist");
 
-    if (!tweetData.author) {
-      whitelistBtn.disabled = true;
-      whitelistBtn.textContent = "Author unavailable";
+    if (!data.author) {
+      wlBtn.disabled = true;
+      wlBtn.textContent = "Author unavailable";
     }
 
     hideBtn.addEventListener("click", (e) => {
       e.stopPropagation();
-      handleHideSimilar(tweetData);
+      handleHideSimilar(data);
       hideBtn.textContent = "Learned!";
       hideBtn.disabled = true;
-      showToast("Pattern learned — similar posts will be hidden");
+      showToast("Pattern learned");
     });
 
-    whitelistBtn.addEventListener("click", (e) => {
+    wlBtn.addEventListener("click", (e) => {
       e.stopPropagation();
-      if (!tweetData.author) return;
-      handleWhitelistAuthor(tweetData, () => {
-        whitelistBtn.textContent = "Whitelisted!";
-        whitelistBtn.disabled = true;
-        placeholder.remove();
+      if (!data.author) return;
+      handleWhitelistAuthor(data, () => {
+        wlBtn.textContent = "Whitelisted!";
+        wlBtn.disabled = true;
+        ph.remove();
         tweetEl.style.display = "";
         tweetEl.removeAttribute(PROCESSED_ATTR);
-        showToast("Author whitelisted — posts will always show");
+        showToast("Author whitelisted");
       });
     });
 
-    function revealTweet() {
+    function reveal() {
       tweetEl.style.display = "";
-      placeholder.classList.add("xf-fade-out");
+      ph.classList.add("xf-fade-out");
       tweetEl.classList.add("xf-fade-in");
-      if (!placeholder.dataset.revealed) {
-        placeholder.dataset.revealed = "true";
+      if (!ph.dataset.revealed) {
+        ph.dataset.revealed = "true";
         settings.stats.postsRevealed++;
         saveSettings();
       }
     }
-
-    function concealTweet() {
-      if (!placeholder.isConnected) return;
+    function conceal() {
+      if (!ph.isConnected) return;
       tweetEl.style.display = "none";
-      placeholder.classList.remove("xf-fade-out");
+      ph.classList.remove("xf-fade-out");
       tweetEl.classList.remove("xf-fade-in");
     }
 
-    placeholder.addEventListener("mouseenter", revealTweet);
-    placeholder.addEventListener("mouseleave", concealTweet);
-    cell.addEventListener("mouseleave", concealTweet);
+    ph.addEventListener("mouseenter", reveal);
+    ph.addEventListener("mouseleave", conceal);
+    cell.addEventListener("mouseleave", conceal);
 
-    cell.insertBefore(placeholder, tweetEl);
+    cell.insertBefore(ph, tweetEl);
     settings.stats.postsHidden++;
     saveSettings();
   }
 
-  function handleHideSimilar(tweetData) {
+  function handleHideSimilar(data) {
     chrome.runtime.sendMessage({
       type: "learnHideSimilar",
-      data: {
-        author: tweetData.author,
-        hashtags: tweetData.hashtags,
-        text: tweetData.text.substring(0, 500)
-      }
-    }, (response) => {
-      if (chrome.runtime.lastError) {
-        warn("learnHideSimilar error:", chrome.runtime.lastError.message);
-      }
+      data: { author: data.author, hashtags: data.hashtags, text: data.text.substring(0, 500) }
     });
   }
 
-  function handleWhitelistAuthor(tweetData, onSuccess) {
-    if (!tweetData.author) return;
-    chrome.runtime.sendMessage({
-      type: "whitelistAuthor",
-      data: { author: tweetData.author }
-    }, (response) => {
-      if (chrome.runtime.lastError) {
-        warn("whitelistAuthor error:", chrome.runtime.lastError.message);
-        return;
-      }
-      if (response?.success) {
-        if (!settings.whitelistedAuthors.includes(tweetData.author)) {
-          settings.whitelistedAuthors.push(tweetData.author);
-        }
+  function handleWhitelistAuthor(data, onSuccess) {
+    if (!data.author) return;
+    chrome.runtime.sendMessage({ type: "whitelistAuthor", data: { author: data.author } }, (resp) => {
+      if (resp?.success) {
+        if (!settings.whitelistedAuthors.includes(data.author)) settings.whitelistedAuthors.push(data.author);
         onSuccess?.();
       }
     });
@@ -532,37 +462,75 @@
   function saveSettings() {
     chrome.runtime.sendMessage({
       type: "updateStats",
-      data: {
-        postsHidden: settings.stats.postsHidden,
-        postsRevealed: settings.stats.postsRevealed
-      }
-    }, () => {
-      if (chrome.runtime.lastError) {
-        warn("saveStats error:", chrome.runtime.lastError.message);
-      }
+      data: { postsHidden: settings.stats.postsHidden, postsRevealed: settings.stats.postsRevealed }
     });
   }
 
-  function showToast(message) {
-    const existing = document.querySelector(".xf-toast");
-    if (existing) existing.remove();
-
-    const toast = document.createElement("div");
-    toast.className = "xf-toast";
-    toast.textContent = message;
-    document.body.appendChild(toast);
-
-    requestAnimationFrame(() => toast.classList.add("xf-toast-visible"));
+  function showToast(msg) {
+    document.querySelector(".xf-toast")?.remove();
+    const t = document.createElement("div");
+    t.className = "xf-toast";
+    t.textContent = msg;
+    document.body.appendChild(t);
+    requestAnimationFrame(() => t.classList.add("xf-toast-visible"));
     setTimeout(() => {
-      toast.classList.remove("xf-toast-visible");
-      setTimeout(() => toast.remove(), 300);
+      t.classList.remove("xf-toast-visible");
+      setTimeout(() => t.remove(), 300);
     }, 2000);
   }
 
+  // --- Floating Status Indicator ---
+
+  function showStatusIndicator() {
+    if (document.getElementById("xf-status")) return;
+    const el = document.createElement("div");
+    el.id = "xf-status";
+    el.style.cssText = `
+      position: fixed; bottom: 16px; right: 16px; z-index: 99999;
+      background: #1d9bf0; color: #fff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 13px; font-weight: 700; padding: 10px 18px;
+      border-radius: 24px; cursor: pointer; opacity: 0.92;
+      transition: opacity 200ms, transform 100ms; user-select: none;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+      display: flex; align-items: center; gap: 8px;
+    `;
+    el.title = "X Filter is active. Click to force re-scan.";
+    el.innerHTML = `
+      <span style="font-size:16px">🛡️</span>
+      <span>X Filter ON</span>
+      <span id="xf-count" style="background:rgba(255,255,255,0.25);padding:2px 8px;border-radius:12px;font-size:11px;min-width:20px;text-align:center">0</span>
+    `;
+    el.addEventListener("click", () => {
+      log("Manual re-scan triggered.");
+      reprocessAll();
+    });
+    el.addEventListener("mouseenter", () => el.style.opacity = "1");
+    el.addEventListener("mouseleave", () => el.style.opacity = "0.92");
+    document.body.appendChild(el);
+  }
+
+  function hideStatusIndicator() {
+    document.getElementById("xf-status")?.remove();
+  }
+
+  function updateStatusIndicator() {
+    const el = document.getElementById("xf-status");
+    if (!el) return;
+    const tweets = getVisibleTweets();
+    const hidden = tweets.filter((t) => t.style.display === "none").length;
+    const countEl = el.querySelector("#xf-count");
+    if (countEl) countEl.textContent = String(hidden);
+
+    // Also update browser action badge
+    chrome.runtime.sendMessage({ type: "updateBadge", count: hidden });
+  }
+
+  // --- Utilities ---
+
   function escapeHtml(str) {
-    const div = document.createElement("div");
-    div.textContent = str;
-    return div.innerHTML;
+    const d = document.createElement("div");
+    d.textContent = str;
+    return d.innerHTML;
   }
 
   function escapeRegex(str) {
@@ -571,24 +539,18 @@
 
   function keywordMatch(text, keyword) {
     const kw = keyword.toLowerCase();
-    if (kw.includes(" ")) {
-      return text.includes(kw);
-    }
+    if (kw.includes(" ")) return text.includes(kw);
     return new RegExp("\\b" + escapeRegex(kw) + "\\b").test(text);
   }
 
-  // --- Keyboard Shortcut ---
+  // --- Keyboard ---
 
   document.addEventListener("keydown", (e) => {
     if (e.shiftKey && e.key === "H") {
-      const focused = document.activeElement;
-      const tweet = focused?.closest('article[data-testid="tweet"]');
+      const tweet = document.activeElement?.closest('article[data-testid="tweet"]');
       if (tweet) {
-        const tweetData = extractTweetData(tweet);
-        if (tweetData) {
-          handleHideSimilar(tweetData);
-          showToast("Pattern learned — similar posts will be hidden");
-        }
+        const d = extractTweetData(tweet);
+        if (d) { handleHideSimilar(d); showToast("Pattern learned"); }
       }
     }
   });

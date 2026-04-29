@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "Filter out political news, movie gossip, and sensationalism from X.com while preserving tech posts.",
   "homepage_url": "https://github.com/nrayyagari/x-filter-extension",
-  "permissions": ["storage", "activeTab"],
+  "permissions": ["storage", "activeTab", "contextMenus"],
   "host_permissions": ["https://x.com/*", "https://twitter.com/*"],
   "background": {
     "service_worker": "background.js"

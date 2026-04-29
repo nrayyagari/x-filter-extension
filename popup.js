@@ -135,6 +135,26 @@ document.getElementById("toggle-enabled").addEventListener("change", (e) => {
   saveAndRefresh();
 });
 
+document.getElementById("btn-rescan").addEventListener("click", () => {
+  const btn = document.getElementById("btn-rescan");
+  btn.textContent = "Scanning...";
+  btn.disabled = true;
+  chrome.tabs.query({ url: ["https://x.com/*", "https://twitter.com/*"] }, (tabs) => {
+    let scanned = 0;
+    tabs.forEach((tab) => {
+      if (tab.id) {
+        chrome.tabs.sendMessage(tab.id, { type: "forceScan" }, (resp) => {
+          if (resp?.scanned) scanned++;
+        });
+      }
+    });
+    setTimeout(() => {
+      btn.textContent = "&#x1F504; Force Re-scan Now";
+      btn.disabled = false;
+    }, 1000);
+  });
+});
+
 document.getElementById("btn-keywords").addEventListener("click", () => {
   currentKeywordTab = "political";
   updateTabHighlight();

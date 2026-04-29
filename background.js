@@ -109,6 +109,21 @@ chrome.runtime.onInstalled.addListener(() => {
       chrome.storage.local.set({ settings: normalizeSettings(result.settings) });
     }
   });
+
+  chrome.contextMenus.create({
+    id: "xf-force-scan",
+    title: "🛡️ X Filter: Force Re-scan",
+    contexts: ["page"],
+    documentUrlPatterns: ["https://x.com/*", "https://twitter.com/*"]
+  });
+});
+
+chrome.contextMenus.onClicked.addListener((info, tab) => {
+  if (info.menuItemId === "xf-force-scan" && tab?.id) {
+    chrome.tabs.sendMessage(tab.id, { type: "forceScan" }, () => {
+      chrome.runtime.lastError;
+    });
+  }
 });
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -177,6 +192,15 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     } catch (e) {
       sendResponse({ success: false, error: e.message });
     }
+    return true;
+  }
+
+  if (message.type === "updateBadge") {
+    const count = message.count || 0;
+    const text = count > 0 ? String(count > 99 ? "99+" : count) : "";
+    chrome.action.setBadgeText({ text });
+    chrome.action.setBadgeBackgroundColor({ color: "#1d9bf0" });
+    sendResponse({ success: true });
     return true;
   }
 });

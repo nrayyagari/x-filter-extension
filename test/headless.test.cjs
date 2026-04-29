@@ -535,6 +535,7 @@ async function runPopupTests(popupPage, bgPage) {
     });
 
     await popupPage.goto(`chrome-extension://${extensionId}/popup.html`);
+    await popupPage.waitForSelector("#main-view", { visible: true, timeout: 5000 });
     await popupPage.evaluate(() => document.getElementById("btn-advanced").click());
     await popupPage.waitForSelector("#advanced-view", { visible: true, timeout: 3000 });
 
@@ -573,7 +574,7 @@ async function runContentTests(mockPage) {
       return {
         display: tweet.style.display,
         hasPlaceholder: tweet.parentElement.querySelectorAll(".xf-placeholder").length > 0,
-        processed: tweet.getAttribute("data-filter-processed")
+        processed: tweet.getAttribute("data-xf-processed")
       };
     });
     assertEqual(result.display, "none", "political tweet hidden");
@@ -685,7 +686,7 @@ async function runContentTests(mockPage) {
   await runTest("Content: processed attribute prevents reprocessing", async () => {
     const result = await mockPage.evaluate(() => {
       const tweet = document.querySelectorAll('article[data-testid="tweet"]')[0];
-      return { processed: tweet.getAttribute("data-filter-processed") };
+      return { processed: tweet.getAttribute("data-xf-processed") };
     });
     assertEqual(result.processed, "true", "tweet marked as processed");
   });
@@ -705,7 +706,7 @@ async function runContentTests(mockPage) {
       window.__xfSettings.enabled = false;
       // Remove processed markers to simulate fresh page
       document.querySelectorAll('article[data-testid="tweet"]').forEach((t) => {
-        t.removeAttribute("data-filter-processed");
+        t.removeAttribute("data-xf-processed");
         t.style.display = "";
       });
       document.querySelectorAll(".xf-placeholder").forEach((p) => p.remove());
@@ -718,7 +719,7 @@ async function runContentTests(mockPage) {
 
     const result = await mockPage.evaluate(() => {
       const tweet = document.querySelectorAll('article[data-testid="tweet"]')[0];
-      return { display: tweet.style.display, processed: tweet.getAttribute("data-filter-processed") };
+      return { display: tweet.style.display, processed: tweet.getAttribute("data-xf-processed") };
     });
     assertEqual(result.display, "", "tweet should remain visible when disabled");
     assertTrue(result.processed !== "true" || result.processed === null, "tweet should not be processed when disabled");
