@@ -1,1 +1,53 @@
+# Dependencies
 node_modules/
+
+# Package manager caches
+.npm/
+.pnpm-store/
+.yarn/
+!.yarn/releases/
+!.yarn/plugins/
+!.yarn/sdks/
+!.yarn/versions/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Test and coverage output
+coverage/
+.nyc_output/
+test-results/
+playwright-report/
+
+# Build and packaged extension output
+dist/
+build/
+out/
+*.zip
+*.crx
+*.pem
+
+# Browser and tooling caches
+.cache/
+.parcel-cache/
+.vite/
+.vitest/
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
