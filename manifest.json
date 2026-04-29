@@ -2,7 +2,8 @@
   "manifest_version": 3,
   "name": "X Filter — Political & Gossip Blocker",
   "version": "1.0.0",
-  "description": "Filter out political news, movie gossip, and sensationalism from X.com while preserving tech content.",
+  "description": "Filter out political news, movie gossip, sensationalism, and international relations content from X.com while preserving tech posts.",
+  "homepage_url": "https://github.com/nrayyagari/x-filter-extension",
   "permissions": ["storage", "activeTab"],
   "host_permissions": ["https://x.com/*", "https://twitter.com/*"],
   "background": {
@@ -18,6 +19,7 @@
   ],
   "action": {
     "default_popup": "popup.html",
+    "default_title": "X Filter — Block politics, gossip & sensationalism",
     "default_icon": {
       "16": "icons/icon16.png",
       "48": "icons/icon48.png",

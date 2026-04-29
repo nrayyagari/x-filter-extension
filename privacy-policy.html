@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>X Filter — Privacy Policy</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 680px; margin: 40px auto; padding: 0 20px; color: #0f1419; line-height: 1.6; }
+    h1 { color: #1d9bf0; border-bottom: 2px solid #1d9bf0; padding-bottom: 8px; }
+    h2 { color: #1d9bf0; margin-top: 32px; }
+    .last-updated { color: #536471; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <h1>X Filter — Privacy Policy</h1>
+  <p class="last-updated">Last updated: April 29, 2026</p>
+
+  <h2>Overview</h2>
+  <p>X Filter is a Chrome extension that filters unwanted content from X.com (Twitter) timelines. This privacy policy explains how the extension handles data.</p>
+
+  <h2>Data Collection</h2>
+  <p><strong>X Filter does not collect any personal data.</strong></p>
+  <ul>
+    <li>No personally identifiable information is collected</li>
+    <li>No browsing history is collected</li>
+    <li>No analytics or telemetry data is sent</li>
+    <li>No data is transmitted to any external server</li>
+  </ul>
+
+  <h2>Data Storage</h2>
+  <p>All extension data is stored locally on your device using <code>chrome.storage.local</code>:</p>
+  <ul>
+    <li>Filter preferences (which categories are active)</li>
+    <li>Keyword lists (political, movies, sensationalism, international relations, tech protection)</li>
+    <li>Learned patterns (authors and hashtags you've marked as "Hide similar")</li>
+    <li>Whitelisted authors</li>
+    <li>Usage statistics (number of posts hidden, patterns learned)</li>
+  </ul>
+  <p>This data never leaves your device. It is not synced, not uploaded, and not shared.</p>
+
+  <h2>Permissions</h2>
+  <ul>
+    <li><strong>storage</strong> — Used to save your filter settings and learned patterns locally on your device.</li>
+    <li><strong>activeTab</strong> — Used to interact with the X.com tab when you click the extension icon.</li>
+    <li><strong>host_permissions (x.com, twitter.com)</strong> — Required for the content script to scan and filter tweets on your timeline. No data is read from or sent to any other website.</li>
+  </ul>
+
+  <h2>Third-Party Services</h2>
+  <p>X Filter does not use any third-party services, APIs, analytics, advertising networks, or tracking scripts.</p>
+
+  <h2>Data Retention &amp; Deletion</h2>
+  <p>All data is stored locally and persists until you:</p>
+  <ul>
+    <li>Click "Reset All Learned Data" in the extension settings, or</li>
+    <li>Uninstall the extension (which removes all stored data), or</li>
+    <li>Clear your browser's local storage</li>
+  </ul>
+
+  <h2>Children's Privacy</h2>
+  <p>X Filter does not knowingly collect data from anyone, including children under 13.</p>
+
+  <h2>Changes to This Policy</h2>
+  <p>We may update this privacy policy from time to time. Changes will be reflected in the "Last updated" date above.</p>
+
+  <h2>Contact</h2>
+  <p>For questions about this privacy policy, please open an issue at:<br>
+  <a href="https://github.com/nrayyagari/x-filter-extension/issues">https://github.com/nrayyagari/x-filter-extension/issues</a></p>
+</body>
+</html>
