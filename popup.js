@@ -90,10 +90,16 @@ function renderAuthorsView() {
 
 function saveAndRefresh() {
   chrome.runtime.sendMessage({ type: "saveSettings", data: settings }, () => {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (tabs[0]?.id) {
-        chrome.tabs.sendMessage(tabs[0].id, { type: "settingsUpdated", data: settings });
-      }
+    // Broadcast settings update to all X.com / Twitter tabs
+    chrome.tabs.query({ url: ["https://x.com/*", "https://twitter.com/*"] }, (tabs) => {
+      tabs.forEach((tab) => {
+        if (tab.id) {
+          chrome.tabs.sendMessage(tab.id, { type: "settingsUpdated", data: settings }, () => {
+            // Ignore errors (tab might not have content script loaded yet)
+            chrome.runtime.lastError;
+          });
+        }
+      });
     });
   });
 }
@@ -275,10 +281,14 @@ document.getElementById("import-file").addEventListener("change", (e) => {
           settings = response.settings;
           statusEl.textContent = "Settings imported successfully!";
           statusEl.className = "status-success";
-          chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-            if (tabs[0]?.id) {
-              chrome.tabs.sendMessage(tabs[0].id, { type: "settingsUpdated", data: settings });
-            }
+          chrome.tabs.query({ url: ["https://x.com/*", "https://twitter.com/*"] }, (tabs) => {
+            tabs.forEach((tab) => {
+              if (tab.id) {
+                chrome.tabs.sendMessage(tab.id, { type: "settingsUpdated", data: settings }, () => {
+                  chrome.runtime.lastError;
+                });
+              }
+            });
           });
         } else {
           statusEl.textContent = "Import failed: " + (response.error || "Unknown error");

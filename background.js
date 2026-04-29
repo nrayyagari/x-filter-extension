@@ -55,6 +55,7 @@ function normalizeSettings(candidate) {
   return {
     ...defaults,
     ...candidate,
+    enabled: typeof candidate.enabled === "boolean" ? candidate.enabled : defaults.enabled,
     activeFilters: {
       political: candidate.activeFilters?.political ?? defaults.activeFilters.political,
       movies: candidate.activeFilters?.movies ?? defaults.activeFilters.movies,
