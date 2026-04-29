@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Mock X.com Timeline - Test Page</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #000; color: #e7e9ea; max-width: 600px; margin: 0 auto; }
+    .timeline { padding: 0; }
+    .cell { border-bottom: 1px solid #2f3336; padding: 12px 16px; }
+    .avatar { width: 40px; height: 40px; border-radius: 50%; background: #1d9bf0; display: inline-block; vertical-align: top; margin-right: 12px; }
+    .tweet-content { display: inline-block; width: calc(100% - 56px); }
+    .tweet-author { font-weight: 700; font-size: 15px; }
+    .tweet-handle { color: #71767b; font-size: 15px; }
+    .tweet-text { font-size: 15px; line-height: 20px; margin-top: 4px; }
+    .tweet-text a { color: #1d9bf0; text-decoration: none; }
+    .tweet-hashtag { color: #1d9bf0; }
+    h2 { text-align: center; color: #1d9bf0; padding: 16px; }
+  </style>
+</head>
+<body>
+  <h2>Mock X.com Timeline</h2>
+  <div data-testid="cellInnerDiv" class="timeline">
+
+    <!-- SHOULD BE HIDDEN: Political (multiple political keywords) -->
+    <div data-testid="cellInnerDiv" class="cell">
+      <article data-testid="tweet" role="article">
+        <div class="avatar"></div>
+        <div class="tweet-content">
+          <div><span class="tweet-author">News Channel</span> <span class="tweet-handle">@newschannel</span></div>
+          <div data-testid="tweetText" lang="en">Breaking: Modi and BJP announce new parliament bill for cabinet ministry in Andhra Pradesh</div>
+        </div>
+      </article>
+    </div>
+
+    <!-- SHOULD BE HIDDEN: Movies & Gossip -->
+    <div data-testid="cellInnerDiv" class="cell">
+      <article data-testid="tweet" role="article">
+        <div class="avatar"></div>
+        <div class="tweet-content">
+          <div><span class="tweet-author">Tollywood Updates</span> <span class="tweet-handle">@tollywood_updates</span></div>
+          <div data-testid="tweetText" lang="en">Tollywood hero box office collections blockbuster hit gossip scandal</div>
+        </div>
+      </article>
+    </div>
+
+    <!-- SHOULD BE HIDDEN: International Relations -->
+    <div data-testid="cellInnerDiv" class="cell">
+      <article data-testid="tweet" role="article">
+        <div class="avatar"></div>
+        <div class="tweet-content">
+          <div><span class="tweet-author">World News</span> <span class="tweet-handle">@worldnews</span></div>
+          <div data-testid="tweetText" lang="en">Trump announces foreign policy shift amid diplomatic crisis with NATO</div>
+        </div>
+      </article>
+    </div>
+
+    <!-- SHOULD BE HIDDEN: Russia-Ukraine -->
+    <div data-testid="cellInnerDiv" class="cell">
+      <article data-testid="tweet" role="article">
+        <div class="avatar"></div>
+        <div class="tweet-content">
+          <div><span class="tweet-author">Conflict Watch</span> <span class="tweet-handle">@conflictwatch</span></div>
+          <div data-testid="tweetText" lang="en">Russia Ukraine war escalation: troop deployment and missile attack reported</div>
+        </div>
+      </article>
+    </div>
+
+    <!-- SHOULD BE HIDDEN: Sensationalism -->
+    <div data-testid="cellInnerDiv" class="cell">
+      <article data-testid="tweet" role="article">
+        <div class="avatar"></div>
+        <div class="tweet-content">
+          <div><span class="tweet-author">Clickbait Daily</span> <span class="tweet-handle">@clickbait</span></div>
+          <div data-testid="tweetText" lang="en">SHOCKING exposed truth revealed you wont believe this must watch viral</div>
+        </div>
+      </article>
+    </div>
+
+    <!-- SHOULD BE VISIBLE: Tech post (override) even with political word -->
+    <div data-testid="cellInnerDiv" class="cell">
+      <article data-testid="tweet" role="article">
+        <div class="avatar"></div>
+        <div class="tweet-content">
+          <div><span class="tweet-author">TechCrunch</span> <span class="tweet-handle">@techcrunch</span></div>
+          <div data-testid="tweetText" lang="en">New Kubernetes and Docker deployment patterns for AI workloads on AWS cloud</div>
+        </div>
+      </article>
+    </div>
+
+    <!-- SHOULD BE VISIBLE: Neutral tweet -->
+    <div data-testid="cellInnerDiv" class="cell">
+      <article data-testid="tweet" role="article">
+        <div class="avatar"></div>
+        <div class="tweet-content">
+          <div><span class="tweet-author">Normal User</span> <span class="tweet-handle">@normaluser</span></div>
+          <div data-testid="tweetText" lang="en">The weather is beautiful today, going for a walk in the park</div>
+        </div>
+      </article>
+    </div>
+
+    <!-- SHOULD BE VISIBLE: Pure tech tweet -->
+    <div data-testid="cellInnerDiv" class="cell">
+      <article data-testid="tweet" role="article">
+        <div class="avatar"></div>
+        <div class="tweet-content">
+          <div><span class="tweet-author">Dev Daily</span> <span class="tweet-handle">@devdaily</span></div>
+          <div data-testid="tweetText" lang="en">Python and JavaScript are the most popular programming languages in 2026</div>
+        </div>
+      </article>
+    </div>
+
+    <!-- SHOULD BE HIDDEN: Single political keyword + single sensational keyword (total = 3) -->
+    <div data-testid="cellInnerDiv" class="cell">
+      <article data-testid="tweet" role="article">
+        <div class="avatar"></div>
+        <div class="tweet-content">
+          <div><span class="tweet-author">Poli Reporter</span> <span class="tweet-handle">@polireporter</span></div>
+          <div data-testid="tweetText" lang="en">Breaking news about the government policy</div>
+        </div>
+      </article>
+    </div>
+
+    <!-- SHOULD BE VISIBLE: 'trumpet' should NOT match 'trump' (word boundary) -->
+    <div data-testid="cellInnerDiv" class="cell">
+      <article data-testid="tweet" role="article">
+        <div class="avatar"></div>
+        <div class="tweet-content">
+          <div><span class="tweet-author">Music Fan</span> <span class="tweet-handle">@musicfan</span></div>
+          <div data-testid="tweetText" lang="en">The trumpet sounded beautifully at the jazz concert last night</div>
+        </div>
+      </article>
+    </div>
+
+    <!-- SHOULD BE HIDDEN: Iran war + military strike -->
+    <div data-testid="cellInnerDiv" class="cell">
+      <article data-testid="tweet" role="article">
+        <div class="avatar"></div>
+        <div class="tweet-content">
+          <div><span class="tweet-author">MidEast News</span> <span class="tweet-handle">@mideastnews</span></div>
+          <div data-testid="tweetText" lang="en">Iran war fears escalate after military strike and missile attack</div>
+        </div>
+      </article>
+    </div>
+
+  </div>
+</body>
+</html>
