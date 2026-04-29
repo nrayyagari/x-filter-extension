@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>X Filter</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Main View -->
+    <div id="main-view">
+      <div class="header">
+        <span class="header-icon">&#x1F6E1;</span>
+        <span class="header-title">X Filter</span>
+      </div>
+      <p class="subtitle">Choose what to block:</p>
+
+      <div class="filter-list">
+        <label class="filter-item">
+          <div class="filter-row">
+            <input type="checkbox" id="filter-political" class="filter-checkbox">
+            <span class="filter-label">Political content</span>
+          </div>
+          <span class="filter-desc">Modi, BJP, Congress, Election, etc.</span>
+        </label>
+
+        <label class="filter-item">
+          <div class="filter-row">
+            <input type="checkbox" id="filter-movies" class="filter-checkbox">
+            <span class="filter-label">Movies &amp; Gossip</span>
+          </div>
+          <span class="filter-desc">Tollywood, Bollywood, Box Office, etc.</span>
+        </label>
+
+        <label class="filter-item">
+          <div class="filter-row">
+            <input type="checkbox" id="filter-sensationalism" class="filter-checkbox">
+            <span class="filter-label">Sensationalism</span>
+          </div>
+          <span class="filter-desc">Breaking, Shocking, Exposed, etc.</span>
+        </label>
+      </div>
+
+      <button id="btn-block" class="btn btn-primary">Block</button>
+
+      <div class="divider"></div>
+
+      <button id="btn-advanced" class="btn btn-secondary">&#x2699; Advanced Settings</button>
+    </div>
+
+    <!-- Advanced Settings View -->
+    <div id="advanced-view" class="hidden">
+      <div class="header">
+        <span class="header-icon">&#x2699;</span>
+        <span class="header-title">Settings</span>
+      </div>
+
+      <label class="toggle-row">
+        <span>Enable Filtering</span>
+        <input type="checkbox" id="toggle-enabled">
+      </label>
+
+      <div class="divider"></div>
+
+      <div class="stats-section">
+        <div class="stats-title">Stats</div>
+        <div class="stats-grid">
+          <div class="stat-item">
+            <span class="stat-value" id="stat-hidden">0</span>
+            <span class="stat-label">Posts hidden</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-value" id="stat-learned">0</span>
+            <span class="stat-label">Patterns learned</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="manage-list">
+        <button class="btn btn-tertiary" id="btn-keywords">&#x270D; Edit Keywords</button>
+        <button class="btn btn-tertiary" id="btn-blocked-authors">&#x1F6AB; Blocked Authors</button>
+        <button class="btn btn-tertiary" id="btn-whitelisted-authors">&#x2714; Whitelisted Authors</button>
+        <button class="btn btn-tertiary" id="btn-export-import">&#x1F4E5; Export / Import</button>
+      </div>
+
+      <div class="divider"></div>
+
+      <button class="btn btn-danger" id="btn-reset">Reset All Learned Data</button>
+      <button class="btn btn-secondary" id="btn-back">&#x2190; Back to Main</button>
+    </div>
+
+    <!-- Keywords View -->
+    <div id="keywords-view" class="hidden">
+      <div class="header">
+        <span class="header-icon">&#x270D;</span>
+        <span class="header-title">Keywords</span>
+      </div>
+
+      <div class="tab-bar">
+        <button class="tab active" data-tab="political">Political</button>
+        <button class="tab" data-tab="movies">Movies</button>
+        <button class="tab" data-tab="sensationalism">Sensationalism</button>
+        <button class="tab" data-tab="techWhitelist">Tech Protect</button>
+      </div>
+
+      <div class="keyword-input-row">
+        <input type="text" id="keyword-input" placeholder="Add keyword..." class="input">
+        <button id="btn-add-keyword" class="btn btn-small btn-primary">+</button>
+      </div>
+
+      <div id="keyword-list" class="keyword-list"></div>
+
+      <button class="btn btn-secondary" id="btn-keywords-back">&#x2190; Back</button>
+    </div>
+
+    <!-- Authors List View -->
+    <div id="authors-view" class="hidden">
+      <div class="header">
+        <span class="header-icon" id="authors-view-icon">&#x1F6AB;</span>
+        <span class="header-title" id="authors-view-title">Authors</span>
+      </div>
+
+      <div class="keyword-input-row">
+        <input type="text" id="author-input" placeholder="Add @handle..." class="input">
+        <button id="btn-add-author" class="btn btn-small btn-primary">+</button>
+      </div>
+
+      <div id="author-list" class="keyword-list"></div>
+
+      <button class="btn btn-secondary" id="btn-authors-back">&#x2190; Back</button>
+    </div>
+
+    <!-- Export/Import View -->
+    <div id="export-view" class="hidden">
+      <div class="header">
+        <span class="header-icon">&#x1F4E5;</span>
+        <span class="header-title">Export / Import</span>
+      </div>
+
+      <button class="btn btn-primary" id="btn-export">&#x1F4E4; Export Settings</button>
+      <button class="btn btn-primary" id="btn-import">&#x1F4E5; Import Settings</button>
+      <input type="file" id="import-file" accept=".json" class="hidden">
+
+      <div id="import-status"></div>
+
+      <button class="btn btn-secondary" id="btn-export-back">&#x2190; Back</button>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

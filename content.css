@@ -1,0 +1,117 @@
+.xf-placeholder {
+  background: #f0f0f0;
+  border-radius: 16px;
+  padding: 24px 16px;
+  margin: 4px 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  transition: opacity 300ms ease;
+  cursor: default;
+}
+
+.xf-placeholder.xf-fade-out {
+  opacity: 0;
+  position: absolute;
+  pointer-events: none;
+}
+
+article[data-testid="tweet"].xf-fade-in {
+  animation: xfadeIn 300ms ease forwards;
+}
+
+@keyframes xfadeIn {
+  from { opacity: 0.5 }
+  to { opacity: 1; }
+}
+
+.xf-placeholder-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+}
+
+.xf-icon-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: center;
+}
+
+.xf-filter-icon {
+  font-size: 20px;
+  color: #8b98a5;
+}
+
+.xf-reason {
+  color: #536471;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.xf-hint {
+  color: #8b98a5;
+  font-size: 13px;
+}
+
+.xf-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.xf-btn {
+  border: none;
+  border-radius: 20px;
+  padding: 6px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 200ms ease, opacity 200ms ease;
+}
+
+.xf-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.xf-btn-hide {
+  background-color: #f4212e1a;
+  color: #f4212e;
+}
+
+.xf-btn-hide:hover:not(:disabled) {
+  background-color: #f4212e33;
+}
+
+.xf-btn-whitelist {
+  background-color: #00ba7c1a;
+  color: #00ba7c;
+}
+
+.xf-btn-whitelist:hover:not(:disabled) {
+  background-color: #00ba7c33;
+}
+
+.xf-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: #1d9bf0;
+  color: #fff;
+  padding: 10px 24px;
+  border-radius: 8px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  z-index: 99999;
+  opacity: 0;
+  transition: opacity 300ms ease, transform 300ms ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.xf-toast.xf-toast-visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
