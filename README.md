@@ -1,11 +1,11 @@
 # X Filter — Political & Gossip Blocker for X.com
 
-A Chrome extension that filters out political discourse, movie gossip, international relations noise, and sensationalist content from your X.com (Twitter) timeline while preserving tech-related posts.
+A Chrome extension that filters out political discourse, movie gossip, and sensationalist content from your X.com (Twitter) timeline while preserving tech-related posts.
 
 ## Features
 
-- **Four filter categories** — Political, Movies & Gossip, Sensationalism, International Relations — each toggleable independently
-- **Weighted scoring engine** — Political/Movie/Intl Relations keywords score +2, sensationalism +1, learned authors +3; posts hidden at score ≥3
+- **Three filter categories** — Political, Movies & Gossip, Sensationalism — each toggleable independently
+- **Weighted scoring engine** — Political/Movie keywords score +2, sensationalism +1, learned authors +3; posts hidden at score ≥3
 - **Tech protection override** — Posts containing tech terms (Kubernetes, AI, programming, etc.) are never hidden regardless of other matches
 - **Learn from mistakes** — "Hide similar" learns the author, hashtags, and keywords from a filtered post to improve future filtering
 - **Whitelist authors** — "Always show @author" permanently protects an author's posts from filtering
@@ -55,7 +55,6 @@ x.com page
 | Political keyword | +2 | `activeFilters.political` |
 | Movie/gossip keyword | +2 | `activeFilters.movies` |
 | Sensationalism keyword | +1 | `activeFilters.sensationalism` |
-| International Relations keyword | +2 | `activeFilters.intlRelations` |
 | Learned author | +3 | Always |
 | Learned hashtag | +2 | Always |
 | Learned keyword | +1 | Always |

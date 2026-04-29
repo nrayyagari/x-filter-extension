@@ -61,7 +61,7 @@ async function runTests() {
       window.__xfSettings = {
         version: "1.0",
         enabled: true,
-        activeFilters: { political: true, movies: true, sensationalism: true, intlRelations: true },
+        activeFilters: { political: true, movies: true, sensationalism: true },
         keywords: {
           political: [
             "modi", "bjp", "congress", "election", "vote", "campaign", "parliament",
@@ -86,21 +86,6 @@ async function runTests() {
             "inside story", "you wont believe", "must watch", "viral", "trending",
             "sensational", "eye opening", "heart breaking", "leaked video",
             "exclusive footage"
-          ],
-          intlRelations: [
-            "trump", "donald trump", "iran war", "iran attack", "iran nuclear",
-            "russia ukraine", "ukraine war", "ukraine conflict", "russia invasion",
-            "putin", "zelensky", "nato", "nato expansion", "sanctions russia",
-            "israel gaza", "gaza war", "gaza conflict", "israel hamas",
-            "middle east crisis", "middle east conflict", "syria war", "syria conflict",
-            "china taiwan", "taiwan strait", "china aggression",
-            "north korea", "kim jong un", "nuclear threat",
-            "taleban", "afghanistan crisis", "afghanistan war",
-            "foreign policy", "diplomatic crisis", "geopolitics",
-            "war crimes", "military strike", "air strike", "missile attack",
-            "refugee crisis", "humanitarian crisis", "un security council",
-            "world war", "nuclear war", "military conflict", "armed conflict",
-            "ceasefire", "peace talks", "war escalation", "troop deployment"
           ]
         },
         techWhitelist: [
@@ -179,15 +164,15 @@ async function runTests() {
     const expected = [
       { index: 0, shouldHide: true, reason: "Political" },
       { index: 1, shouldHide: true, reason: "Movies & Gossip" },
-      { index: 2, shouldHide: true, reason: "Intl Relations" },
-      { index: 3, shouldHide: true, reason: "Intl Relations" },
+      { index: 2, shouldHide: false, reason: "Out of scope international relations" },
+      { index: 3, shouldHide: false, reason: "Out of scope international relations" },
       { index: 4, shouldHide: true, reason: "Sensationalism" },
       { index: 5, shouldHide: false, reason: "Tech override" },
       { index: 6, shouldHide: false, reason: "Neutral" },
       { index: 7, shouldHide: false, reason: "Tech" },
       { index: 8, shouldHide: true, reason: "Mixed" },
       { index: 9, shouldHide: false, reason: "Word boundary" },
-      { index: 10, shouldHide: true, reason: "Intl Relations" },
+      { index: 10, shouldHide: false, reason: "Out of scope international relations" },
     ];
 
     let passed = 0;

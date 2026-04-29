@@ -1,7 +1,7 @@
 const DEFAULTS = {
   version: "1.0",
   enabled: true,
-  activeFilters: { political: true, movies: true, sensationalism: true, intlRelations: true },
+  activeFilters: { political: true, movies: true, sensationalism: true },
   keywords: {
     political: [
       "modi", "bjp", "congress", "election", "vote", "campaign", "parliament",
@@ -26,21 +26,6 @@ const DEFAULTS = {
       "inside story", "you wont believe", "must watch", "viral", "trending",
       "sensational", "eye opening", "heart breaking", "leaked video",
       "exclusive footage"
-    ],
-    intlRelations: [
-      "trump", "donald trump", "iran war", "iran attack", "iran nuclear",
-      "russia ukraine", "ukraine war", "ukraine conflict", "russia invasion",
-      "putin", "zelensky", "nato", "nato expansion", "sanctions russia",
-      "israel gaza", "gaza war", "gaza conflict", "israel hamas",
-      "middle east crisis", "middle east conflict", "syria war", "syria conflict",
-      "china taiwan", "taiwan strait", "china aggression",
-      "north korea", "kim jong un", "nuclear threat",
-      "taleban", "afghanistan crisis", "afghanistan war",
-      "foreign policy", "diplomatic crisis", "geopolitics",
-      "war crimes", "military strike", "air strike", "missile attack",
-      "refugee crisis", "humanitarian crisis", "un security council",
-      "world war", "nuclear war", "military conflict", "armed conflict",
-      "ceasefire", "peace talks", "war escalation", "troop deployment"
     ]
   },
   techWhitelist: [
@@ -63,10 +48,64 @@ function getDefaults() {
   return JSON.parse(JSON.stringify(DEFAULTS));
 }
 
+function normalizeSettings(candidate) {
+  if (!candidate || typeof candidate !== "object") return getDefaults();
+
+  const defaults = getDefaults();
+  return {
+    ...defaults,
+    ...candidate,
+    activeFilters: {
+      political: candidate.activeFilters?.political ?? defaults.activeFilters.political,
+      movies: candidate.activeFilters?.movies ?? defaults.activeFilters.movies,
+      sensationalism: candidate.activeFilters?.sensationalism ?? defaults.activeFilters.sensationalism
+    },
+    keywords: {
+      political: Array.isArray(candidate.keywords?.political) ? candidate.keywords.political : defaults.keywords.political,
+      movies: Array.isArray(candidate.keywords?.movies) ? candidate.keywords.movies : defaults.keywords.movies,
+      sensationalism: Array.isArray(candidate.keywords?.sensationalism) ? candidate.keywords.sensationalism : defaults.keywords.sensationalism
+    },
+    techWhitelist: Array.isArray(candidate.techWhitelist) ? candidate.techWhitelist : defaults.techWhitelist,
+    learned: {
+      authors: Array.isArray(candidate.learned?.authors) ? candidate.learned.authors : defaults.learned.authors,
+      hashtags: Array.isArray(candidate.learned?.hashtags) ? candidate.learned.hashtags : defaults.learned.hashtags,
+      keywords: Array.isArray(candidate.learned?.keywords) ? candidate.learned.keywords : defaults.learned.keywords
+    },
+    whitelistedAuthors: Array.isArray(candidate.whitelistedAuthors) ? candidate.whitelistedAuthors : defaults.whitelistedAuthors,
+    stats: {
+      ...defaults.stats,
+      ...(candidate.stats || {})
+    }
+  };
+}
+
+function validateImportedSettings(settings) {
+  if (!settings || typeof settings !== "object" || !settings.version) {
+    throw new Error("Invalid settings format");
+  }
+
+  const requiredKeywordLists = ["political", "movies", "sensationalism"];
+  if (!settings.keywords || requiredKeywordLists.some((key) => !Array.isArray(settings.keywords[key]))) {
+    throw new Error("Invalid keyword settings");
+  }
+
+  if (!settings.learned || !Array.isArray(settings.learned.authors) || !Array.isArray(settings.learned.hashtags) || !Array.isArray(settings.learned.keywords)) {
+    throw new Error("Invalid learned settings");
+  }
+
+  if (!Array.isArray(settings.techWhitelist) || !Array.isArray(settings.whitelistedAuthors)) {
+    throw new Error("Invalid whitelist settings");
+  }
+
+  return normalizeSettings(settings);
+}
+
 chrome.runtime.onInstalled.addListener(() => {
   chrome.storage.local.get("settings", (result) => {
     if (!result.settings) {
       chrome.storage.local.set({ settings: getDefaults() });
+    } else {
+      chrome.storage.local.set({ settings: normalizeSettings(result.settings) });
     }
   });
 });
@@ -84,14 +123,14 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
   if (message.type === "getSettings") {
     chrome.storage.local.get("settings", (result) => {
-      sendResponse({ settings: result.settings || getDefaults() });
+      sendResponse({ settings: normalizeSettings(result.settings) });
     });
     return true;
   }
 
   if (message.type === "updateStats") {
     chrome.storage.local.get("settings", (result) => {
-      const settings = result.settings || getDefaults();
+      const settings = normalizeSettings(result.settings);
       settings.stats.postsHidden = message.data.postsHidden;
       settings.stats.postsRevealed = message.data.postsRevealed;
       chrome.storage.local.set({ settings }, () => {
@@ -102,7 +141,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
 
   if (message.type === "saveSettings") {
-    chrome.storage.local.set({ settings: message.data }, () => {
+    chrome.storage.local.set({ settings: normalizeSettings(message.data) }, () => {
       enforceStorageLimits();
       sendResponse({ success: true });
     });
@@ -111,7 +150,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
   if (message.type === "resetLearned") {
     chrome.storage.local.get("settings", (result) => {
-      const settings = result.settings || getDefaults();
+      const settings = normalizeSettings(result.settings);
       settings.learned = { authors: [], hashtags: [], keywords: [] };
       chrome.storage.local.set({ settings }, () => {
         sendResponse({ success: true });
@@ -122,18 +161,17 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
   if (message.type === "exportSettings") {
     chrome.storage.local.get("settings", (result) => {
-      sendResponse({ settings: result.settings || getDefaults() });
+      sendResponse({ settings: normalizeSettings(result.settings) });
     });
     return true;
   }
 
   if (message.type === "importSettings") {
     try {
-      const settings = message.data;
-      if (!settings.version) throw new Error("Invalid settings format");
+      const settings = validateImportedSettings(message.data);
       chrome.storage.local.set({ settings }, () => {
         enforceStorageLimits();
-        sendResponse({ success: true });
+        sendResponse({ success: true, settings });
       });
     } catch (e) {
       sendResponse({ success: false, error: e.message });
@@ -144,7 +182,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
 function handleLearnHideSimilar(data, sendResponse) {
   chrome.storage.local.get("settings", (result) => {
-    const settings = result.settings || getDefaults();
+    const settings = normalizeSettings(result.settings);
     let learned = false;
 
     if (data.author && !settings.learned.authors.includes(data.author)) {
@@ -186,7 +224,11 @@ function handleLearnHideSimilar(data, sendResponse) {
 
 function handleWhitelistAuthor(data, sendResponse) {
   chrome.storage.local.get("settings", (result) => {
-    const settings = result.settings || getDefaults();
+    const settings = normalizeSettings(result.settings);
+    if (!data.author) {
+      sendResponse({ success: false, error: "Missing author" });
+      return;
+    }
     if (!settings.whitelistedAuthors.includes(data.author)) {
       settings.whitelistedAuthors.push(data.author);
       settings.stats.authorsWhitelisted++;
@@ -201,7 +243,7 @@ function handleWhitelistAuthor(data, sendResponse) {
 
 function enforceStorageLimits() {
   chrome.storage.local.get("settings", (result) => {
-    const settings = result.settings;
+    const settings = normalizeSettings(result.settings);
     if (!settings) return;
 
     const MAX_PER_LIST = 2000;

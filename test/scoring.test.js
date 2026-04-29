@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { scoreTweet, keywordMatch, KEYWORDS, TECH_WHITELIST } from "./scoring.js";
 
-const defaultFilters = { political: true, movies: true, sensationalism: true, intlRelations: true };
-const noFilters = { political: false, movies: false, sensationalism: false, intlRelations: false };
+const defaultFilters = { political: true, movies: true, sensationalism: true };
+const noFilters = { political: false, movies: false, sensationalism: false };
 
 function score(text, author = "", hashtags = [], filters = defaultFilters, learned = {}) {
   return scoreTweet(
@@ -90,40 +90,6 @@ describe("Sensationalism filtering", () => {
 
   it("does not hide with just 1 sensational keyword (score=1)", () => {
     const result = score("This is a breaking story about tech");
-    expect(result.hidden).toBe(false);
-  });
-});
-
-describe("International Relations filtering", () => {
-  it("hides tweets with Trump and intl relations keywords", () => {
-    const result = score("Trump announces foreign policy and diplomatic crisis");
-    expect(result.hidden).toBe(true);
-    expect(result.reason).toBeTruthy();
-  });
-
-  it("hides Russia-Ukraine war tweets", () => {
-    const result = score("Russia Ukraine war escalation troop deployment military strike");
-    expect(result.hidden).toBe(true);
-  });
-
-  it("hides Iran war tweets", () => {
-    const result = score("Iran war nuclear threat missile attack ceasefire");
-    expect(result.hidden).toBe(true);
-  });
-
-  it("hides Israel-Gaza tweets", () => {
-    const result = score("Israel Gaza conflict humanitarian crisis peace talks");
-    expect(result.hidden).toBe(true);
-  });
-
-  it("does not hide when intl relations filter is off", () => {
-    const filters = { ...defaultFilters, intlRelations: false };
-    const result = score("Trump Putin diplomatic crisis", "", [], filters);
-    expect(result.hidden).toBe(false);
-  });
-
-  it("word-boundary: 'trumpet' does not match 'trump'", () => {
-    const result = score("The trumpet concert was amazing last night");
     expect(result.hidden).toBe(false);
   });
 });

@@ -1,12 +1,12 @@
 {
   "name": "x-filter-extension",
   "version": "1.0.0",
-  "description": "A Chrome extension that filters out political discourse, movie gossip, international relations noise, and sensationalist content from your X.com (Twitter) timeline while preserving tech-related posts.",
+  "description": "A Chrome extension that filters out political discourse, movie gossip, and sensationalist content from your X.com (Twitter) timeline while preserving tech-related posts.",
   "type": "module",
   "scripts": {
-    "test": "vitest run",
+    "test": "npm run test:unit && npm run test:integration",
     "test:unit": "vitest run --config vitest.unit.config.js",
-    "test:integration": "node test/integration.test.js"
+    "test:integration": "node test/integration.test.cjs"
   },
   "keywords": [],
   "author": "",

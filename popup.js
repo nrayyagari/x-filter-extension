@@ -21,7 +21,6 @@ function renderMainView() {
   document.getElementById("filter-political").checked = settings.activeFilters.political;
   document.getElementById("filter-movies").checked = settings.activeFilters.movies;
   document.getElementById("filter-sensationalism").checked = settings.activeFilters.sensationalism;
-  document.getElementById("filter-intlRelations").checked = settings.activeFilters.intlRelations ?? true;
 }
 
 function renderAdvancedView() {
@@ -110,7 +109,6 @@ document.getElementById("btn-block").addEventListener("click", () => {
   settings.activeFilters.political = document.getElementById("filter-political").checked;
   settings.activeFilters.movies = document.getElementById("filter-movies").checked;
   settings.activeFilters.sensationalism = document.getElementById("filter-sensationalism").checked;
-  settings.activeFilters.intlRelations = document.getElementById("filter-intlRelations").checked;
   saveAndRefresh();
   const btn = document.getElementById("btn-block");
   btn.textContent = "Saved!";
@@ -271,13 +269,17 @@ document.getElementById("import-file").addEventListener("change", (e) => {
       const imported = JSON.parse(event.target.result);
       if (!imported.version) throw new Error("Invalid settings format");
 
-      settings = imported;
       chrome.runtime.sendMessage({ type: "importSettings", data: imported }, (response) => {
         const statusEl = document.getElementById("import-status");
         if (response.success) {
+          settings = response.settings;
           statusEl.textContent = "Settings imported successfully!";
           statusEl.className = "status-success";
-          saveAndRefresh();
+          chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+            if (tabs[0]?.id) {
+              chrome.tabs.sendMessage(tabs[0].id, { type: "settingsUpdated", data: settings });
+            }
+          });
         } else {
           statusEl.textContent = "Import failed: " + (response.error || "Unknown error");
           statusEl.className = "status-error";

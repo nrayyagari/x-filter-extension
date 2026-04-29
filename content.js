@@ -2,6 +2,7 @@
   const PROCESSED_ATTR = "data-filter-processed";
   let settings = null;
   let debounceTimer = null;
+  let observer = null;
 
   function init() {
     chrome.runtime.sendMessage({ type: "getSettings" }, (response) => {
@@ -19,7 +20,7 @@
         reprocessAll();
         startFiltering();
       } else {
-        restoreAllHidden();
+        stopFiltering();
       }
     }
   });
@@ -30,7 +31,9 @@
   }
 
   function observeDOM() {
-    const observer = new MutationObserver((mutations) => {
+    if (observer) return;
+
+    observer = new MutationObserver((mutations) => {
       if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
         let hasNewNodes = false;
@@ -54,6 +57,17 @@
     });
 
     observer.observe(document.body, { childList: true, subtree: true });
+  }
+
+  function stopFiltering() {
+    if (observer) {
+      observer.disconnect();
+      observer = null;
+    }
+    if (debounceTimer) {
+      clearTimeout(debounceTimer);
+      debounceTimer = null;
+    }
   }
 
   function getVisibleTweets() {
@@ -80,11 +94,8 @@
     const tweets = getVisibleTweets();
     tweets.forEach((tweet) => {
       tweet.removeAttribute(PROCESSED_ATTR);
-      const placeholder = tweet.parentElement.querySelector(".xf-placeholder");
-      if (placeholder) {
-        placeholder.remove();
-        tweet.style.display = "";
-      }
+      tweet.parentElement.querySelectorAll(".xf-placeholder").forEach((placeholder) => placeholder.remove());
+      tweet.style.display = "";
     });
     let offset = 0;
     function processBatch() {
@@ -102,18 +113,6 @@
       }
     }
     processBatch();
-  }
-
-  function restoreAllHidden() {
-    const tweets = getVisibleTweets();
-    tweets.forEach((tweet) => {
-      tweet.removeAttribute(PROCESSED_ATTR);
-      const placeholder = tweet.parentElement.querySelector(".xf-placeholder");
-      if (placeholder) {
-        placeholder.remove();
-        tweet.style.display = "";
-      }
-    });
   }
 
   function processTweet(tweetEl) {
@@ -138,7 +137,6 @@
                    tweetEl.querySelector('[lang]');
 
     let authorHandle = "";
-    const userLink = tweetEl.querySelector('a[href*="/"] [role="link"]');
     const allLinks = tweetEl.querySelectorAll("a[href]");
     for (const link of allLinks) {
       const href = link.getAttribute("href") || "";
@@ -222,15 +220,6 @@
       }
     }
 
-    if (settings.activeFilters.intlRelations) {
-      for (const kw of settings.keywords.intlRelations) {
-        if (keywordMatch(lowerText, kw)) {
-          score += 2;
-          if (!reason) reason = "International Relations";
-        }
-      }
-    }
-
     if (settings.learned.authors.includes(author)) {
       score += 3;
       if (!reason) reason = "Learned author";
@@ -280,6 +269,11 @@
     const hideBtn = placeholder.querySelector(".xf-btn-hide");
     const whitelistBtn = placeholder.querySelector(".xf-btn-whitelist");
 
+    if (!tweetData.author) {
+      whitelistBtn.disabled = true;
+      whitelistBtn.textContent = "Author unavailable";
+    }
+
     hideBtn.addEventListener("click", (e) => {
       e.stopPropagation();
       handleHideSimilar(tweetData);
@@ -290,13 +284,17 @@
 
     whitelistBtn.addEventListener("click", (e) => {
       e.stopPropagation();
-      handleWhitelistAuthor(tweetData);
-      whitelistBtn.textContent = "Whitelisted!";
-      whitelistBtn.disabled = true;
-      showToast("Author whitelisted — posts will always show");
+      handleWhitelistAuthor(tweetData, () => {
+        whitelistBtn.textContent = "Whitelisted!";
+        whitelistBtn.disabled = true;
+        placeholder.remove();
+        tweetEl.style.display = "";
+        tweetEl.removeAttribute(PROCESSED_ATTR);
+        showToast("Author whitelisted — posts will always show");
+      });
     });
 
-    placeholder.addEventListener("mouseenter", () => {
+    function revealTweet() {
       tweetEl.style.display = "";
       placeholder.classList.add("xf-fade-out");
       tweetEl.classList.add("xf-fade-in");
@@ -305,13 +303,18 @@
         settings.stats.postsRevealed++;
         saveSettings();
       }
-    });
+    }
 
-    placeholder.addEventListener("mouseleave", () => {
+    function concealTweet() {
+      if (!placeholder.isConnected) return;
       tweetEl.style.display = "none";
       placeholder.classList.remove("xf-fade-out");
       tweetEl.classList.remove("xf-fade-in");
-    });
+    }
+
+    placeholder.addEventListener("mouseenter", revealTweet);
+    placeholder.addEventListener("mouseleave", concealTweet);
+    cell.addEventListener("mouseleave", concealTweet);
 
     cell.insertBefore(placeholder, tweetEl);
     settings.stats.postsHidden++;
@@ -329,10 +332,18 @@
     });
   }
 
-  function handleWhitelistAuthor(tweetData) {
+  function handleWhitelistAuthor(tweetData, onSuccess) {
+    if (!tweetData.author) return;
     chrome.runtime.sendMessage({
       type: "whitelistAuthor",
       data: { author: tweetData.author }
+    }, (response) => {
+      if (response?.success) {
+        if (!settings.whitelistedAuthors.includes(tweetData.author)) {
+          settings.whitelistedAuthors.push(tweetData.author);
+        }
+        onSuccess?.();
+      }
     });
   }
 
